@@ -2,46 +2,80 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>BaseRush</title>
+    <title>BaseRush | Official Game</title>
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <style>
-        body { background: #050505; color: #fff; text-align: center; font-family: sans-serif; }
-        button { padding: 15px 30px; cursor: pointer; background: #0052FF; color: white; border: none; border-radius: 8px; margin: 10px; }
+        body { background: #050505; color: #fff; text-align: center; font-family: 'Segoe UI', sans-serif; }
+        h1 { color: #0052FF; margin-top: 30px; }
+        #game-board { width: 320px; height: 320px; background: #1a1a1a; margin: 20px auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 10px; border-radius: 12px; border: 2px solid #0052FF; }
+        .cell { background: #2a2a2a; display: flex; align-items: center; justify-content: center; font-weight: bold; border-radius: 6px; color: #00d4ff; font-size: 20px; }
+        .controls { margin-top: 20px; }
+        button { padding: 15px 30px; cursor: pointer; background: #0052FF; color: white; border: none; border-radius: 8px; font-weight: bold; margin: 5px; transition: 0.3s; }
+        button:disabled { background: #333; cursor: not-allowed; }
+        #status { margin-top: 15px; font-size: 14px; color: #aaa; }
     </style>
 </head>
 <body>
     <h1>BaseRush</h1>
+    <div id="game-board"></div>
+    <div class="controls">
+        <button id="connectBtn">Connect Wallet</button>
+        <button id="submitBtn" disabled>Submit Score</button>
+    </div>
     <div id="status">Status: Disconnected</div>
-    <button id="connectBtn">Connect Wallet</button>
-    <button id="submitBtn">Submit Score</button>
 
     <script>
         const contractAddress = "0x57Cece13cfC5AfAF2fB059A394d174f21d11a1cA";
-        const abi = [{"inputs":[{"internalType":"uint256","name":"_score","type":"uint256"}],"name":"submitScore","outputs":[],"stateMutability":"nonpayable","type":"function"}];
+        const BASE_CHAIN_ID = '0x2105'; // 8453 in hex
 
-        // چک کردن لود شدن کتابخانه
-        window.onload = () => {
-            if (typeof ethers === 'undefined') {
-                document.getElementById('status').innerText = "Error: Library failed to load. Check your internet!";
+        // ساخت جدول
+        const board = document.getElementById('game-board');
+        for(let i=0; i<16; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.innerText = "0";
+            board.appendChild(cell);
+        }
+
+        const connectBtn = document.getElementById('connectBtn');
+        const submitBtn = document.getElementById('submitBtn');
+        const status = document.getElementById('status');
+
+        async function checkNetwork() {
+            const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+            if (chainId !== BASE_CHAIN_ID) {
+                try {
+                    await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BASE_CHAIN_ID }] });
+                } catch (e) {
+                    alert("Please switch to Base Network in your wallet!");
+                    return false;
+                }
             }
-        };
+            return true;
+        }
 
-        document.getElementById('connectBtn').onclick = async () => {
-            if (!window.ethereum) return alert("Wallet not detected!");
+        connectBtn.onclick = async () => {
+            if (!window.ethereum) return alert("Install MetaMask/Rabby!");
             const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-            document.getElementById('status').innerText = "Connected: " + accounts[0].slice(0,6);
+            if (await checkNetwork()) {
+                status.innerText = "Connected: " + accounts[0].slice(0,6) + "...";
+                connectBtn.disabled = true;
+                submitBtn.disabled = false;
+            }
         };
 
-        document.getElementById('submitBtn').onclick = async () => {
+        submitBtn.onclick = async () => {
             try {
+                if (!(await checkNetwork())) return;
                 const provider = new ethers.providers.Web3Provider(window.ethereum);
-                const signer = provider.getSigner();
-                const contract = new ethers.Contract(contractAddress, abi, signer);
-                await contract.submitScore(2048);
-                alert("Success!");
-            } catch (e) {
-                alert("Transaction Error: " + e.message);
-            }
+                const contract = new ethers.Contract(contractAddress, ["function submitScore(uint256)"], provider.getSigner());
+                
+                status.innerText = "Transaction pending...";
+                const tx = await contract.submitScore(2048);
+                await tx.wait();
+                status.innerText = "Success! Score on-chain.";
+                alert("Score Submitted!");
+            } catch (e) { status.innerText = "Error: " + e.message; }
         };
     </script>
 </body>
