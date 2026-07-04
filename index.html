@@ -2,15 +2,14 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>BaseRush | Official Game</title>
+    <title>BaseRush | Play & Earn</title>
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <style>
         body { background: #050505; color: #fff; text-align: center; font-family: 'Arial', sans-serif; padding: 20px; }
         h1 { color: #0052FF; }
         #game-board { width: 320px; height: 320px; background: #1a1a1a; margin: 20px auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 10px; border-radius: 10px; border: 2px solid #0052FF; }
-        .cell { background: #333; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 24px; color: #00d4ff; border-radius: 5px; }
+        .cell { background: #333; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px; color: #00d4ff; border-radius: 5px; }
         button { padding: 12px 20px; cursor: pointer; background: #0052FF; color: white; border: none; border-radius: 8px; font-weight: bold; margin: 5px; }
-        button:disabled { background: #444; }
         #status { margin-top: 15px; color: #aaa; font-size: 14px; }
     </style>
 </head>
@@ -20,54 +19,41 @@
     <div class="controls">
         <button id="connectBtn">Connect Wallet</button>
         <button id="submitBtn" disabled>Submit Score</button>
-        <button id="refreshBtn">Refresh Data</button>
     </div>
     <div id="status">Status: Disconnected</div>
 
     <script>
         const contractAddress = "0x57Cece13cfC5AfAF2fB059A394d174f21d11a1cA";
-        // دقت کن: اینجا تابعِ getScore را اضافه کردیم تا بشود امتیاز را خواند
-        const abi = [
-            "function submitScore(uint256)",
-            "function getScore(address) view returns (uint256)"
-        ];
-
         const board = document.getElementById('game-board');
+        
+        // ساخت جدول
         for(let i = 0; i < 16; i++) {
             const cell = document.createElement('div');
             cell.className = 'cell';
-            cell.innerText = "0";
+            cell.innerText = i === 0 ? (localStorage.getItem('myScore') || "0") : "0";
             board.appendChild(cell);
-        }
-
-        async function getProvider() {
-            return new ethers.providers.Web3Provider(window.ethereum);
         }
 
         document.getElementById('connectBtn').onclick = async () => {
             const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-            const addr = accounts[0];
-            document.getElementById('status').innerText = "Connected: " + addr.substring(0, 6) + "..." + addr.substring(addr.length - 5);
+            document.getElementById('status').innerText = "Connected: " + accounts[0].substring(0, 6) + "..." + accounts[0].substring(38);
             document.getElementById('submitBtn').disabled = false;
-        };
-
-        document.getElementById('refreshBtn').onclick = async () => {
-            try {
-                const provider = await getProvider();
-                const contract = new ethers.Contract(contractAddress, abi, provider);
-                const address = await provider.getSigner().getAddress();
-                const score = await contract.getScore(address);
-                document.getElementsByClassName('cell')[0].innerText = score.toString();
-            } catch (e) { alert("Could not fetch score: " + e.message); }
         };
 
         document.getElementById('submitBtn').onclick = async () => {
             try {
-                const signer = (await getProvider()).getSigner();
-                const contract = new ethers.Contract(contractAddress, abi, signer);
-                await contract.submitScore(2048); // اینجا امتیاز را ثبت کن
-                alert("Score Recorded! Click Refresh Data.");
-            } catch (e) { alert("Error: " + e.message); }
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                const contract = new ethers.Contract(contractAddress, ["function submitScore(uint256)"], provider.getSigner());
+                
+                document.getElementById('status').innerText = "Submitting to blockchain...";
+                await contract.submitScore(2048);
+                
+                // ذخیره در مرورگر بعد از موفقیت تراکنش
+                localStorage.setItem('myScore', "2048");
+                document.getElementsByClassName('cell')[0].innerText = "2048";
+                
+                alert("Score Submitted & Saved!");
+            } catch (e) { alert("Transaction Error!"); }
         };
     </script>
 </body>
