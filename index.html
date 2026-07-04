@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>BaseRush - On-Chain 2048</title>
+    <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"></script>
+    <style>
+        body { background: #050505; color: #fff; text-align: center; font-family: Arial, sans-serif; }
+        h1 { color: #0052FF; }
+        #game-board { width: 320px; height: 320px; background: #1a1a1a; margin: 20px auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 10px; border-radius: 10px; border: 2px solid #0052FF; }
+        .cell { width: 70px; height: 70px; background: #333; display: flex; align-items: center; justify-content: center; font-weight: bold; border-radius: 5px; color: #00d4ff; }
+        button { padding: 12px 25px; cursor: pointer; background: #0052FF; color: white; border: none; border-radius: 8px; font-weight: bold; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>BaseRush</h1>
+    <div id="score-board">Score: <span id="score">0</span></div>
+    <div id="game-board"></div>
+    <button id="connectBtn">Connect Wallet</button>
+    <button onclick="saveScore()">Submit Score to Blockchain</button>
+
+    <script>
+        const contractAddress = "0x57Cece13cfC5AfAF2fB059A394d174f21d11a1cA";
+        const abi = [{"inputs":[{"internalType":"uint256","name":"_score","type":"uint256"}],"name":"submitScore","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"allScores","outputs":[{"internalType":"address","name":"player","type":"address"},{"internalType":"uint256","name":"score","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getScoresCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}];
+
+        let score = 0;
+        const board = document.getElementById('game-board');
+
+        function initBoard() {
+            for(let i=0; i<16; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                board.appendChild(cell);
+            }
+        }
+        initBoard();
+
+        document.getElementById('connectBtn').onclick = async () => {
+            if(window.ethereum) await window.ethereum.request({ method: 'eth_requestAccounts' });
+            else alert("Please install a wallet like Rabby or MetaMask");
+        };
+
+        async function saveScore() {
+            try {
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                const signer = provider.getSigner();
+                const contract = new ethers.Contract(contractAddress, abi, signer);
+                const tx = await contract.submitScore(score);
+                alert("Transaction submitted! Please confirm in your wallet.");
+                await tx.wait();
+                alert("Success! Your score is recorded on BaseRush.");
+            } catch (e) { alert("Error: " + e.message); }
+        }
+
+        score = 2048; document.getElementById('score').innerText = score;
+    </script>
+</body>
+</html>
