@@ -2,57 +2,77 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>BaseRush - On-Chain 2048</title>
-    <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BaseRush</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        body { background: #050505; color: #fff; text-align: center; font-family: Arial, sans-serif; }
+        body { background: #050505; color: #fff; text-align: center; font-family: sans-serif; padding: 20px; }
         h1 { color: #0052FF; }
-        #game-board { width: 320px; height: 320px; background: #1a1a1a; margin: 20px auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 10px; border-radius: 10px; border: 2px solid #0052FF; }
-        .cell { width: 70px; height: 70px; background: #333; display: flex; align-items: center; justify-content: center; font-weight: bold; border-radius: 5px; color: #00d4ff; }
-        button { padding: 12px 25px; cursor: pointer; background: #0052FF; color: white; border: none; border-radius: 8px; font-weight: bold; margin: 5px; }
+        #game-board { width: 300px; height: 300px; background: #1a1a1a; margin: 20px auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 10px; border-radius: 10px; border: 2px solid #0052FF; }
+        .cell { background: #333; display: flex; align-items: center; justify-content: center; font-weight: bold; border-radius: 5px; color: #00d4ff; }
+        button { padding: 12px 24px; cursor: pointer; background: #0052FF; color: white; border: none; border-radius: 8px; font-weight: bold; margin: 10px; }
+        button:disabled { background: #444; cursor: not-allowed; }
+        #status { margin-top: 15px; font-size: 14px; color: #aaa; }
     </style>
 </head>
 <body>
     <h1>BaseRush</h1>
-    <div id="score-board">Score: <span id="score">0</span></div>
     <div id="game-board"></div>
+    <div id="score-display">Score: 2048</div>
     <button id="connectBtn">Connect Wallet</button>
-    <button onclick="saveScore()">Submit Score to Blockchain</button>
+    <button id="submitBtn" disabled>Submit Score</button>
+    <div id="status">Status: Disconnected</div>
 
     <script>
         const contractAddress = "0x57Cece13cfC5AfAF2fB059A394d174f21d11a1cA";
-        const abi = [{"inputs":[{"internalType":"uint256","name":"_score","type":"uint256"}],"name":"submitScore","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"allScores","outputs":[{"internalType":"address","name":"player","type":"address"},{"internalType":"uint256","name":"score","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getScoresCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}];
+        const abi = [{"inputs":[{"internalType":"uint256","name":"_score","type":"uint256"}],"name":"submitScore","outputs":[],"stateMutability":"nonpayable","type":"function"}];
 
-        let score = 0;
+        const connectBtn = document.getElementById('connectBtn');
+        const submitBtn = document.getElementById('submitBtn');
+        const status = document.getElementById('status');
+
+        // ایجاد صفحه بازی
         const board = document.getElementById('game-board');
-
-        function initBoard() {
-            for(let i=0; i<16; i++) {
-                const cell = document.createElement('div');
-                cell.className = 'cell';
-                board.appendChild(cell);
-            }
+        for(let i=0; i<16; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            board.appendChild(cell);
         }
-        initBoard();
 
-        document.getElementById('connectBtn').onclick = async () => {
-            if(window.ethereum) await window.ethereum.request({ method: 'eth_requestAccounts' });
-            else alert("Please install a wallet like Rabby or MetaMask");
+        connectBtn.onclick = async () => {
+            if (!window.ethereum) return alert("Please install a wallet (Rabby/MetaMask).");
+            try {
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                status.innerText = "Status: Connected (" + accounts[0].substring(0, 6) + "...)";
+                connectBtn.disabled = true;
+                submitBtn.disabled = false;
+            } catch (e) {
+                status.innerText = "Status: Connection Failed";
+            }
         };
 
-        async function saveScore() {
+        submitBtn.onclick = async () => {
             try {
+                // اطمینان از وجود ethers
+                if (typeof ethers === 'undefined') throw new Error("Ethers library failed to load");
+                
                 const provider = new ethers.providers.Web3Provider(window.ethereum);
                 const signer = provider.getSigner();
                 const contract = new ethers.Contract(contractAddress, abi, signer);
-                const tx = await contract.submitScore(score);
-                alert("Transaction submitted! Please confirm in your wallet.");
-                await tx.wait();
-                alert("Success! Your score is recorded on BaseRush.");
-            } catch (e) { alert("Error: " + e.message); }
-        }
 
-        score = 2048; document.getElementById('score').innerText = score;
+                status.innerText = "Status: Confirming in wallet...";
+                const tx = await contract.submitScore(2048);
+                status.innerText = "Status: Transaction sent, waiting for block...";
+                
+                await tx.wait();
+                status.innerText = "Status: Success! Score recorded.";
+                alert("Score successfully submitted!");
+            } catch (e) {
+                console.error(e);
+                status.innerText = "Status: Error";
+                alert("Transaction failed: " + (e.message || e));
+            }
+        };
     </script>
 </body>
 </html>
