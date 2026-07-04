@@ -2,17 +2,17 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>BaseRush | Play & Earn</title>
+    <title>BaseRush | Official Game</title>
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <style>
-        body { background: #050505; color: #fff; text-align: center; font-family: 'Arial', sans-serif; margin: 0; padding: 20px; }
+        body { background: #050505; color: #fff; text-align: center; font-family: 'Arial', sans-serif; padding: 20px; }
         h1 { color: #0052FF; }
         #game-board { width: 320px; height: 320px; background: #1a1a1a; margin: 20px auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 10px; border-radius: 10px; border: 2px solid #0052FF; }
         .cell { background: #333; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 24px; color: #00d4ff; border-radius: 5px; }
-        .controls { margin-top: 20px; }
-        button { padding: 15px 30px; cursor: pointer; background: #0052FF; color: white; border: none; border-radius: 8px; font-weight: bold; margin: 5px; }
+        button { padding: 12px 24px; cursor: pointer; background: #0052FF; color: white; border: none; border-radius: 8px; font-weight: bold; margin: 5px; }
         button:disabled { background: #444; }
-        #status { margin-top: 15px; color: #aaa; }
+        #disconnectBtn { background: #d9534f; display: none; }
+        #status { margin-top: 15px; color: #aaa; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -20,6 +20,7 @@
     <div id="game-board"></div>
     <div class="controls">
         <button id="connectBtn">Connect Wallet</button>
+        <button id="disconnectBtn">Disconnect</button>
         <button id="submitBtn" disabled>Submit Score</button>
     </div>
     <div id="status">Status: Disconnected</div>
@@ -28,41 +29,48 @@
         const contractAddress = "0x57Cece13cfC5AfAF2fB059A394d174f21d11a1cA";
         const BASE_CHAIN_ID = '0x2105'; 
 
-        // ۱. ساخت جدول بازی
+        // ۱. ساخت جدول
         const board = document.getElementById('game-board');
         for(let i = 0; i < 16; i++) {
             const cell = document.createElement('div');
             cell.className = 'cell';
-            cell.innerText = "2"; // عدد اولیه بازی
+            cell.innerText = "0"; // شروع از صفر
             board.appendChild(cell);
         }
 
-        // ۲. اتصال و نمایش آدرس حرفه‌ای
+        // ۲. دکمه اتصال
         document.getElementById('connectBtn').onclick = async () => {
-            if (!window.ethereum) return alert("Install MetaMask or Rabby!");
             const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BASE_CHAIN_ID }] });
             
-            // تغییر شبکه به Base
-            try {
-                await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BASE_CHAIN_ID }] });
-            } catch(e) { alert("Please switch to Base Network!"); }
-
             const addr = accounts[0];
             const displayAddr = addr.substring(0, 6) + "..." + addr.substring(addr.length - 5);
             document.getElementById('status').innerText = "Connected: " + displayAddr;
-            document.getElementById('connectBtn').disabled = true;
+            
+            document.getElementById('connectBtn').style.display = 'none';
+            document.getElementById('disconnectBtn').style.display = 'inline-block';
             document.getElementById('submitBtn').disabled = false;
         };
 
-        // ۳. ثبت امتیاز
+        // ۳. دکمه قطع اتصال
+        document.getElementById('disconnectBtn').onclick = () => {
+            location.reload(); // ساده‌ترین و مطمئن‌ترین روش برای ریست کردن DApp
+        };
+
+        // ۴. ثبت امتیاز و تغییر جدول
         document.getElementById('submitBtn').onclick = async () => {
             try {
                 const provider = new ethers.providers.Web3Provider(window.ethereum);
                 const contract = new ethers.Contract(contractAddress, ["function submitScore(uint256)"], provider.getSigner());
-                document.getElementById('status').innerText = "Sending transaction...";
-                const tx = await contract.submitScore(2048);
-                await tx.wait();
-                alert("Score Submitted Successfully!");
+                
+                document.getElementById('status').innerText = "Transaction pending...";
+                await contract.submitScore(2048);
+                
+                // تغییر مقدار اولین سلول به عنوان تایید تراکنش
+                document.getElementsByClassName('cell')[0].innerText = "2048";
+                
+                alert("Score Submitted!");
+                document.getElementById('status').innerText = "Status: Success";
             } catch (e) { alert("Error: " + e.message); }
         };
     </script>
